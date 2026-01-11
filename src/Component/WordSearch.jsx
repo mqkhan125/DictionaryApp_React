@@ -3,49 +3,92 @@ import React, { useState } from "react";
 const WordSearch = () => {
   const [search, setSearch] = useState("");
   const [data, setData] = useState(null);
-
-  const handleOnchangeEvent = (e) => {
-    console.log(e.target.value);
-    setSearch(e.target.value);
-  };
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const fetchData = async () => {
+    if (!search.trim()) return;
+
+    setLoading(true);
+    setError("");
+    setData(null);
+
     try {
-      let get = await fetch(
+      const res = await fetch(
         `https://api.dictionaryapi.dev/api/v2/entries/en/${search}`
       );
-      let jsonData = await get.json();
-      setData(jsonData[0])
-      console.log(jsonData[0]);
-    } catch (error) {
-      console.log(error);
+      const json = await res.json();
+      console.log(json)
+
+      if (!res.ok) {
+        throw new Error(json.message || "Word not found");
+      }
+
+      setData(json[0]);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <div className="app">
       <h1>Dictionary App</h1>
+
       <div className="container">
         <div className="searchBar">
           <input
             type="text"
-            placeholder="Search Word's"
+            placeholder="Search a word"
             value={search}
-            onChange={handleOnchangeEvent}
+            onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && fetchData()}
           />
           <button onClick={fetchData}>Search</button>
         </div>
+
         <div className="datas">
-          {data ? (
-            <div className="datas">
-              <h2>Word : {data.word}</h2>
-              <p>Part Of Speech : {data.meanings[0].partOfSpeech}</p>
-              <p>definition : {data.meanings[0].definitions[0].definition}</p>
-              <p>synonym : {data.meanings[0].synonyms[0]}</p>
-              <button onClick={() => {window.open(data.sourceUrls[0], "_blank");}}>Read More</button>
-            </div>
-          ) : (
-            "Data not found"
+          {loading && <p>Loading...</p>}
+          {error && <p style={{ color: "red" }}>{error}</p>}
+
+          {data && (
+            <>
+              <h2>Word: {data.word}</h2>
+
+              {/* phonetics */}
+              {data.phonetics?.[0]?.text && (
+                <p>Phonetic: {data.phonetics[0].text}</p>
+              )}
+
+              {/* meanings */}
+              {data.meanings.map((meaning, index) => (
+                <div key={index}>
+                  <p>
+                    <strong>Part of Speech:</strong> {meaning.partOfSpeech}
+                  </p>
+
+                  {meaning.definitions.map((def, i) => (
+                    <p key={i}>• {def.definition}</p>
+                  ))}
+
+                  {meaning.synonyms?.length > 0 && (
+                    <p>
+                      <strong>Synonyms: </strong>
+                      {meaning.synonyms.slice(0, 5).join(", ")}
+                    </p>
+                  )}
+                </div>
+              ))}
+
+              {data.sourceUrls?.[0] && (
+                <button
+                  onClick={() => window.open(data.sourceUrls[0], "_blank")}
+                >
+                  Read More
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>
